@@ -17,7 +17,7 @@ export default function App() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('http://localhost:8001/upload', { method: 'POST', body: formData });
+      const res = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
       const data = await res.json();
       console.log(res);
       console.log(data);
@@ -32,89 +32,13 @@ export default function App() {
     }
   };
 
-  // Perguntar à LLM
-  const handleAsk_old = async () => {
-    if (!question) return;
-    try {
-      const res = await fetch('http://localhost:8001/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ pergunta: question }),
-      });
-      const data = await res.json();
-      
-      const ans = data.response;
-
-      // se ainda for objeto, extrai o .output
-      let finalAnswer;
-      if (ans && typeof ans === "object" && "output" in ans) {
-        finalAnswer = ans.output;
-      } else {
-        finalAnswer = String(ans);
-      }
-
-      setResponse(finalAnswer);
-      setHistory(prev => [...prev, { q: question, a: finalAnswer }]);
-      setQuestion('');
-
-      // Detectar dados tabulares
-      try {
-        const parsed = JSON.parse(ans);
-        if (Array.isArray(parsed)) setChartData(parsed);
-        else setChartData(null);
-      } catch { setChartData(null); }
-
-    } catch (err) {
-      alert('Erro ao fazer pergunta: ' + err.message);
-    }
-  };
-
-  const handleAsk_prd = async () => {
-    if (!question) return;
-    try {
-      const res = await fetch("http://localhost:8001/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ pergunta: question }),
-      });
-      const data = await res.json();
-
-      // resposta bruta do backend
-      let ans = data.response;
-
-      // se vier no formato {input, output}, pega só o output
-      if (ans && typeof ans === "object" && "output" in ans) {
-        ans = ans.output.output ? ans.output.output : ans.output;
-      }
-      console.log("Resposta bruta do backend:", ans)
-
-      // garante que ans é string
-      const finalAnswer = typeof ans === "string" ? ans : JSON.stringify(ans, null, 2);
-
-      setResponse(finalAnswer);
-      setHistory((prev) => [...prev, { q: question, a: finalAnswer }]);
-      setQuestion("");
-
-      // Detectar dados tabulares para gráfico
-      try {
-        const parsed = JSON.parse(finalAnswer);
-        if (Array.isArray(parsed)) setChartData(parsed);
-        else setChartData(null);
-      } catch {
-        setChartData(null);
-      }
-    } catch (err) {
-      alert("Erro ao fazer pergunta: " + err.message);
-    }
-  };
-  
-  const handleAsk = async () => {
+  const handlePergunta = async () => {
     if (!question) return;
 
     const formData = new URLSearchParams();
     formData.append("pergunta", question);
 
-    const res = await fetch("http://localhost:8001/ask", {
+    const res = await fetch(`${API_URL}/pergunta`, {
       method: "POST",
       body: formData,
     });
@@ -172,7 +96,7 @@ export default function App() {
             value={question}
             onChange={e => setQuestion(e.target.value)}
           />
-          <button className="btn btn-success" onClick={handleAsk}>Perguntar</button>
+          <button className="btn btn-success" onClick={handlePergunta}>Perguntar</button>
         </div>
       )}
 

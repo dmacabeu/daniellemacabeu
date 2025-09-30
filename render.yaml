@@ -1,0 +1,32 @@
+services:
+  # ======== FRONTEND ========
+  - type: web
+    name: macabeu-frontend
+    env: docker
+    plan: free
+    dockerContext: ./eda-frontend
+    dockerfilePath: ./eda-frontend/Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_URL
+        value: https://macabeu-backend.onrender.com  # URL do backend
+    healthCheckPath: /
+    domains:
+      - macabeu-frontend.onrender.com
+
+  # ======== BACKEND ========
+  - type: web
+    name: macabeu-backend
+    env: docker
+    plan: free
+    dockerContext: ./
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false  # configure pelo painel
+    healthCheckPath: /health
+    domains:
+      - macabeu-backend.onrender.com
