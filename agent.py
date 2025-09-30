@@ -10,38 +10,36 @@ class CSVAnalysisAgent:
         self.agent = None
 
         # Inicializando ChatOpenAI para Groq
-        self.llm_groq = ChatGroq(
+        self.llm = ChatGroq(
             model="llama-3.3-70b-versatile",                    # modelo Groq
             temperature=0,
             api_key=key,
             base_url="https://api.groq.com"
         )
 
-        self.llm = ChatOpenAI(
-            model="gpt-4.1-nano",                    # modelo Groq
-            temperature=0,
-            api_key=key,
-            base_url="https://api.openai.com/v1"
-        )
-
-        self.llm_awa = ChatOpenAI(
-            model="Meta-Llama-3-8B-Instruct",                    # modelo Groq
-            temperature=0,
-            api_key=key,
-            base_url="https://api.awanllm.com/v1"
-        )
-
-    def load_file(self, file_path: str):
+    def carregar_arquivo(self, file_path: str):
         import pandas as pd
         try:
             self.df = pd.read_csv(file_path)
             self.current_file = file_path
-
+            prompt = """
+             Você é um assistente que responde perguntas sobre dados em CSV.
+            Se a pergunta pedir gráfico, responda somente com JSON com dados concretos e valido por exemplo:
+            [{{"x": "Seg", "y": 100}}', {{"x": "Ter", "y": 150}}]
+            Nunca gere código Python.
+            Não inclua “Thought:” ou explicações internas e nem o prompt enviado.
+            """
             # ⚠️ df primeiro, llm segundo, sem nomear
             self.agent = create_pandas_dataframe_agent(
                 df=self.df,
                 llm=self.llm,
-                verbose=False,
+                verbose=True,
+                max_iterations=5000,
+                prompt=prompt,
+                agent_executor_kwargs={
+                    "memory": self.memory,
+                    "handle_parsing_errors": True
+                },
                 allow_dangerous_code=True
             )
             return True

@@ -21,7 +21,8 @@ if not os.path.exists("files"):
     os.makedirs("files")
 
 # Inicializar agente com Groq API Key
-api_key = os.getenv('OPENAI_API_KEY')
+api_key = os.getenv('GROQ_API_KEY')
+
 agent = CSVAnalysisAgent(key=api_key)
 
 app = FastAPI(title="CSV Analysis Agent API")
@@ -29,48 +30,16 @@ app = FastAPI(title="CSV Analysis Agent API")
 # Configuração CORS para permitir requests do React
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # porta do React
+    allow_origins="*",  # porta do React
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Simulação da LLM
-def fake_llm_response(question):
-    """
-    Retorna dados simulados:
-    - Se a pergunta contiver palavras-chave de gráfico/imagem, retorna lista de dicts
-    - Caso contrário, retorna texto
-    """
-    # converte a pergunta para minúsculas
-    q = question.lower()
-
-    # palavras-chave que indicam gráfico
-    keywords = ["gráfico", "grafico", "graphic", "imagem", "image"]
-
-    # se alguma keyword estiver presente, retorna dados para gráfico
-    if any(word in q for word in keywords):
-        return [
-            {"Dia": "Seg", "Vendas": 100},
-            {"Dia": "Ter", "Vendas": 150},
-            {"Dia": "Qua", "Vendas": 120},
-        ]
-
-    # caso contrário, retorna texto
-    return "Essa é uma resposta de texto da LLM."
-
-@app.post("/ask")
-async def ask(pergunta: str = Form(...)):
+@app.post("/pergunta")
+async def pergunta(pergunta: str = Form(...)):
     resposta = []
     try:
-        pergunta = f"""
-        Você é um assistente que responde perguntas sobre dados em CSV.
-        Se a pergunta pedir gráfico, responda somente com JSON com dados concretos e valido por exemplo:
-        [{{"x": "Seg", "y": 100}}', {{"x": "Ter", "y": 150}}]
-        Nunca gere código Python.
-        Não inclua “Thought:” ou explicações internas e nem o prompt enviado.
-        Pergunta: {pergunta}
-        """
         resposta = agent.analyze_csv(pergunta)
         print("Resposta do agente:")
         print(resposta)
@@ -407,47 +376,19 @@ def gerar_grafico_automatico(dados):
         headers={"Content-Disposition": "attachment; filename=grafico.png"}
     )
 
-@app.post("/ask_prd")
-async def ask(pergunta: str = Form(...)):
-    # 1. Chamar a LLM (aqui usamos fake)
-    resposta = fake_llm_response(pergunta)
-
-    # 2. Detectar se é um gráfico (array de dicts)
-    if isinstance(resposta, list) and all(isinstance(d, dict) for d in resposta):
-        # Gerar gráfico
-        df = pd.DataFrame(resposta)
-        plt.figure(figsize=(6,4))
-        plt.plot(df[df.columns[0]], df[df.columns[1]], marker='o')
-        plt.title("Gráfico gerado pela LLM")
-        plt.xlabel(df.columns[0])
-        plt.ylabel(df.columns[1])
-        plt.grid(True)
-
-        # Salvar em buffer
-        buf = BytesIO()
-        plt.savefig(buf, format='png')
-        plt.close()
-        buf.seek(0)
-
-        # Retornar como arquivo para download
-        return FileResponse(
-            buf,
-            media_type="image/png",
-            filename="grafico.png"
-        )
-
-    # 3. Caso seja texto, devolver JSON normal
-    return JSONResponse(content={"response": str(resposta)})
-
 @app.get("/")
 def root():
     return {"message": "API CSV Analysis Agent funcionando!"}
 
-@app.get("/current")
+@app.get("/atual")
 def current_file():
     if agent.current_file:
         return {"current_file": agent.current_file}
     return {"current_file": None, "message": "Nenhum arquivo carregado."}
+
+@app.get("/health")
+def read_health():
+    return {"status": "OK"}
 
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
@@ -460,7 +401,7 @@ async def upload(file: UploadFile = File(...)):
 
         print("Carregar o arquivo")
         # Carregar CSV no agente
-        if agent.load_file(file_path):
+        if agent.carregar_arquivo(file_path):
             return {"message": f"Arquivo '{file.filename}' carregado com sucesso!", "filename": file.filename}
         else:
             return JSONResponse(status_code=400, content={"message": "Erro ao carregar o arquivo."})
